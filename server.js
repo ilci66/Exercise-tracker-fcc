@@ -14,7 +14,6 @@ mongoose.connect(uri, {useFindAndModify: false,
 
 app.use(cors())
 app.use(express.static('public'))
-
 app.get('/', (req, res) => {
   res.sendFile(__dirname + '/views/index.html')
 });
@@ -24,65 +23,53 @@ const listener = app.listen(process.env.PORT || 3000, () => {
   console.log('Your app is listening on port ' + listener.address().port)
 })
 
+const sessionSchema = new mongoose.Schema({
+  description: {type: String, required: true},
+  duration: {type: Number, required: true},
+  date: String
+})
+
 const userSchema = new mongoose.Schema({
-  username: String,
-  duration: Number,
-  description: String,
-  date: Date
+  username: {type: String, required:true},
+  logs:[sessionSchema]
 })
 
-const User = mongoose.model('User', userSchema)
+const User = mongoose.model("User", userSchema)
+const Session = mongoose.model("Session", sessionSchema)
 
-const responseObject = {};
-
-app.post("/api/users", bodyParser.urlencoded({ extended: false }), (req, res) => {
-  const nameInput = req.body.username
-  //res.json(nameInput)
-  User.findOne({username: nameInput})
-    .exec((error, data) => {
-      if(!error && data == undefined){
-        User.findOneAndUpdate(
-          {username: nameInput},
-          {username: nameInput},
-          {new:true, upsert:true},
-          (error, newData) => {
-            //res.json(newData.username)
-            responseObject["username"] = newData["username"]
-            responseObject["_id"] = newData["_id"]
-            res.json(responseObject)
-          })
-        //res.json("null")
-      }if(!error && data != undefined){
-        res.json("Username already taken")
-      }
-    })
-})
-const testId = "609e403909e599313df7a31b"
-
-app.post("/api/users/:userId/exercises", bodyParser.urlencoded({ extended: false }), (req, res) => {
-  const idInput = req.params.userId
-  //const id = req["body"]["_id"]
-  const descInput = req["body"]["description"]
-  const duraInput = req["body"]["duration"]
-  const dateInput = req["body"]["date"]
-
-  console.log(duraInput, descInput, idInput)
-  User.findOne({_id: idInput}, (error, data) => {
-    if(!error && data == undefined) {
-      console.log("Unknown userId")
-    }if(!error){
-      User.findOneAndUpdate(
-        {_id: idInput},
-        {_id: idInput, description: descInput, duration: duraInput, date: dateInput},
-        {new:true, upsert:true},
-        (error, newData) => {
-//trying to figure out how to include date 
-          responseObject["_id"] = newData["_id"]
-          responseObject["username"] = newData["username"]
-          responseObject["description"] = newData["description"]
-          responseObject["duration"] = newData["duration"]
-          res.json(responseObject)
-        })
+//this is the part I handled creating a user 
+const responseObject = {}
+app.post("/api/users",  bodyParser.urlencoded({ extended: false }), (req, res) => {
+  const usernameInput = req.body.username
+  //console.log(username)
+  User.findOne({username:usernameInput}, (error, data) => {
+    if(!error && data != undefined) {
+      res.json("Username already taken")
+      return
+    } else if (!error) {
+      const newUser = new User({username: usernameInput}).save((error, savedData) => {
+        responseObject["username"] = savedData["username"]
+        responseObject["_id"] = savedData["_id"]
+        res.json(responseObject);
+      })
     }
   })
+})
+
+//handling get request for all users
+app.get("/api/users", (req, res) => {
+  User.find({}, (error, allUsers) => {
+    res.json(allUsers)
+  })
+})
+
+//handling sessions here
+app.post("/api/users/:_id/exercises", bodyParser.urlencoded({ extended: false }), (req, res) => {
+  const newSession = new Session({
+    description: req.body.description,
+    duration: req.body.duration,
+    date: req.body.date
+  })
+  res.json(newSession)
+  //console.log(req.body.description)
 })
