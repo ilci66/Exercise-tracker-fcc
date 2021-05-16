@@ -29,13 +29,16 @@ const sessionSchema = new mongoose.Schema({
   date: String
 })
 
+//I could also use unique:true in options but went this way instead
 const userSchema = new mongoose.Schema({
   username: {type: String, required:true},
-  logs:[sessionSchema]
+  log:[sessionSchema]
 })
 
 const User = mongoose.model("User", userSchema)
 const Session = mongoose.model("Session", sessionSchema)
+
+// testId = "60a0f74bf6275c047c0e7d2d"
 
 //this is the part I handled creating a user 
 const responseObject = {}
@@ -65,11 +68,61 @@ app.get("/api/users", (req, res) => {
 
 //handling sessions here
 app.post("/api/users/:_id/exercises", bodyParser.urlencoded({ extended: false }), (req, res) => {
+  const id = req["params"]["_id"]
   const newSession = new Session({
     description: req.body.description,
     duration: req.body.duration,
     date: req.body.date
   })
-  res.json(newSession)
-  //console.log(req.body.description)
+
+//if date's not given take now in the asked format, apparently ISO
+  if(newSession.date === ""){
+    newSession.date = new Date().toISOString().substring(0,10)
+  }
+  
+  //I could also use findOneAndUpdate too but mongoose suggests 
+  //I use id for this query  
+  User.findByIdAndUpdate(id, 
+  {$push:{log: newSession}}, 
+  {new: true},
+  (error, data) => {
+//kept getting an "_id" not defined error but somehow fixed it
+    //console.log(newSession)
+    if(!error){
+      responseObject["_id"] = id
+      responseObject["username"] = data["username"]
+//I keep getting invalid date error, gonna use date of newSession
+      responseObject["date"] = new Date(newSession.date).toDateString()
+      responseObject["duration"] = newSession["duration"]
+      responseObject["description"] = newSession["description"]
+      res.json(responseObject)
+    }
+  })
+  //res.json(responseObject)
+})
+
+
+let resForGet = {}
+//test first ID = 60a105ab70fa8306cbdff639
+//handle the get request on /api/users/:_id/logs
+
+app.get("/api/users/:_id/logs", (req, res) => {
+  const idInput = req["params"]["_id"]
+  User.findOne({_id: idInput}, (error, data) => {
+    const {limit, from, to} = req.query
+    resForGet["_id"] = data["_id"]
+    resForGet["username"] = data["username"]
+    resForGet["count"] = data["log"].length
+
+    if(limit) {
+      resForGet["log"] = data["log"].slice(0,limit)
+    }else if(!limit){
+      resForGet["log"] = data["log"]
+    }
+    console.log(limit, from, to)
+    
+
+
+    res.json(resForGet)
+  })
 })
