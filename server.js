@@ -109,20 +109,49 @@ let resForGet = {}
 app.get("/api/users/:_id/logs", (req, res) => {
   const idInput = req["params"]["_id"]
   User.findOne({_id: idInput}, (error, data) => {
-    const {limit, from, to} = req.query
-    resForGet["_id"] = data["_id"]
-    resForGet["username"] = data["username"]
-    resForGet["count"] = data["log"].length
+    if(error){ console.log("ran into an error")}
+    if(!error){
+      const {limit, from, to} = req.query
+      console.log(limit, from, to)
 
-    if(limit) {
-      resForGet["log"] = data["log"].slice(0,limit)
-    }else if(!limit){
-      resForGet["log"] = data["log"]
+      resForGet["_id"] = data["_id"]
+      resForGet["username"] = data["username"]
+      resForGet["count"] = data["log"].length
+
+//handle the limit, took a while to figure out 
+
+    //I can do it better
+    // if(from && to){
+    //   //resForGet.log = data.
+    // }else if(from && !to) {
+    //   console.log("there's a form")
+    //   //resForGet.log = data.elemMatch({"log":{$gte:from}})
+    // }else if(to && !from) {
+    //   console.log(new Date(to).toISOString())
+    //   //resForGet.log = data.elemMatch({"log":{$gte:to}})
+    //   console.log(
+    //     new Date(to) <= new Date(data.log[0].date)
+    //   )
+    // }
+
+      if(from && to){
+        resForGet.log = data.log.filter(session => new Date(from) <= new Date(session.date) <= new Date(to))
+      }if(from && !to) {
+        console.log("from")
+        resForGet.log = data.log.filter(session => new Date(from) <= new Date(session.date))
+      }if(to && !from) {
+        console.log("to")
+        resForGet.log = data.log.filter(session => new Date(session.date) <= new Date(to))
+        console.log(resForGet.log)
+      }
+
+      if(limit) {
+        resForGet["log"] = data["log"].slice(0,limit)
+      }
+      if(!limit && !to && !from) {
+        resForGet.log = data.log
+      }
+      res.json(resForGet)
     }
-    console.log(limit, from, to)
-    
-
-
-    res.json(resForGet)
   })
 })
